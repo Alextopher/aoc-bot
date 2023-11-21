@@ -1,0 +1,7 @@
+version: "3.9"
+services:
+  apod:
+    build: .
+    volumes:
+      - ./logs:/app/logs
+      - ./config.json:/app/config.json

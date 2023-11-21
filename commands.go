@@ -68,6 +68,8 @@ func (bot *Bot) onInteractionCreate(session *discordgo.Session, interaction *dis
 func (bot *Bot) onClaim(interaction *discordgo.InteractionCreate) {
 	username := interaction.ApplicationCommandData().Options[0].StringValue()
 
+	log.Printf("Trying to claim username %s for @%s", username, interaction.Member.User.Username)
+
 	// Get the guild state
 	guildState, ok := bot.states[interaction.GuildID]
 	if !ok {
@@ -123,11 +125,15 @@ func (bot *Bot) onClaim(interaction *discordgo.InteractionCreate) {
 }
 
 func (bot *Bot) onHelp(interaction *discordgo.InteractionCreate) {
+	log.Printf("Help requested by @%s", interaction.Member.User.Username)
+
 	help := "Help:\n- `/claim <username>`: Claims a username by Advent of Code name (or ID)\n- `/stars` returns how many stars you have collected (mostly for debugging)\n- `/help`: Shows this help message"
 	bot.respondToInteraction(interaction, help, false)
 }
 
 func (bot *Bot) onStars(interaction *discordgo.InteractionCreate) {
+	log.Printf("Star count requested by @%s", interaction.Member.User.Username)
+
 	guildState, ok := bot.states[interaction.GuildID]
 	if !ok {
 		bot.respondToInteraction(interaction, "Error: This guild is not configured, yet.", true)
@@ -136,7 +142,7 @@ func (bot *Bot) onStars(interaction *discordgo.InteractionCreate) {
 
 	id, ok := guildState.db.GetAdventID(interaction.Member.User.ID)
 	if !ok {
-		bot.respondToInteraction(interaction, "Error: You haven't `/claim`d a user yet.", true)
+		bot.respondToInteraction(interaction, "Error: You haven't ran `/claim` yet.", true)
 		return
 	}
 
