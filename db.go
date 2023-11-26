@@ -64,10 +64,12 @@ func NewDatabase(reader io.Reader, writer io.Writer) (*Database, error) {
 		mappings: make(map[string]string),
 	}
 
+	decoder := json.NewDecoder(reader)
+
 	// Decode in a loop to avoid EOF errors
 	for {
 		var event DatabaseEvent
-		err := json.NewDecoder(reader).Decode(&event)
+		err := decoder.Decode(&event)
 
 		if err != nil {
 			if err == io.EOF {
@@ -163,13 +165,13 @@ func (database *Database) CheckClaim(adventID string) bool {
 	return false
 }
 
-// ForEach iterates over each claim and calls a function
-func (database *Database) ForEach(fn func(discord_id, advent_id string)) {
+// GoForEach iterates over each claim and calls a function
+func (database *Database) GoForEach(fn func(discord_id, advent_id string)) {
 	database.RLock()
 
 	// Iterate over each claim
 	for discordID, adventID := range database.mappings {
-		fn(discordID, adventID)
+		go fn(discordID, adventID)
 	}
 
 	database.RUnlock()

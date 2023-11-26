@@ -31,13 +31,13 @@ func NewBot(session *discordgo.Session, sessionCookie string) *Bot {
 
 // AddGuild adds a guild to the bot
 func (bot *Bot) AddGuild(guildID string, year string, leaderboardID string) (err error) {
-	// Create guild log file
-	log, err := os.OpenFile(fmt.Sprintf("logs/%s.db", guildID), os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
+	// Create guild logFile file
+	logFile, err := os.OpenFile(fmt.Sprintf("logs/%s.db", guildID), os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		return err
 	}
 
-	bot.states[guildID], err = NewGuildState(bot.sessionCookie, year, leaderboardID, log)
+	bot.states[guildID], err = NewGuildState(bot.sessionCookie, year, leaderboardID, logFile)
 	if err != nil {
 		return err
 	}
@@ -144,6 +144,54 @@ func (bot *Bot) CheckRole(guild *discordgo.Guild, name string) bool {
 	return false
 }
 
+// SetupChannel sets up a channel for use by a given day (and spoiler)
+func (bot *Bot) SetupChannel(guild *discordgo.Guild, channelID string, day int64) error {
+	// Get the day role
+	roleName := fmt.Sprintf("Day %d", day)
+	var roleID string
+	for _, role := range guild.Roles {
+		if role.Name == roleName {
+			roleID = role.ID
+			break
+		}
+	}
+
+	// Get the spoiler role
+	var spoilerID string
+	for _, role := range guild.Roles {
+		if role.Name == "Spoiler" {
+			spoilerID = role.ID
+			break
+		}
+	}
+
+	// Get the everyone role
+	var everyoneID string
+	for _, role := range guild.Roles {
+		if role.Name == "@everyone" {
+			everyoneID = role.ID
+			break
+		}
+	}
+
+	err := bot.session.ChannelPermissionSet(channelID, roleID, discordgo.PermissionOverwriteTypeRole, discordgo.PermissionViewChannel, 0)
+	if err != nil {
+		return err
+	}
+
+	err = bot.session.ChannelPermissionSet(channelID, spoilerID, discordgo.PermissionOverwriteTypeRole, discordgo.PermissionViewChannel, 0)
+	if err != nil {
+		return err
+	}
+
+	err = bot.session.ChannelPermissionSet(channelID, everyoneID, discordgo.PermissionOverwriteTypeRole, 0, discordgo.PermissionViewChannel)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // SyncMemberRoles syncs a user's roles to reflect their current star count.
 func (bot *Bot) SyncMemberRoles(guild *discordgo.Guild, guildMember *discordgo.Member) (err error) {
 	guildState, ok := bot.states[guild.ID]
@@ -178,7 +226,7 @@ func (bot *Bot) SyncAllRoles(guild *discordgo.Guild) error {
 	// Get the leaderboard
 	leaderboard := guildState.GetLeaderboard()
 
-	guildState.db.ForEach(func(discord_id, advent_id string) {
+	guildState.db.GoForEach(func(discord_id, advent_id string) {
 		member, ok := leaderboard.GetMemberByID(advent_id)
 		if !ok {
 			log.Printf("Error: Member %s not found\n", advent_id)

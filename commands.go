@@ -47,6 +47,19 @@ func (bot *Bot) RegisterCommands() error {
 			Type:        discordgo.ChatApplicationCommand,
 		},
 		{
+			Name:        "setup",
+			Description: "Sets up this channel for use as a spoiler channel for a given day (Admin only)",
+			Type:        discordgo.ChatApplicationCommand,
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Name:        "day",
+					Description: "The day to set up this channel for",
+					Type:        discordgo.ApplicationCommandOptionInteger,
+					Required:    true,
+				},
+			},
+		},
+		{
 			Name:        "source",
 			Description: "Returns the source code for the bot",
 			Type:        discordgo.ChatApplicationCommand,
@@ -91,6 +104,8 @@ func (bot *Bot) onInteractionCreate(session *discordgo.Session, interaction *dis
 		bot.onStars(i)
 	case "spoilers":
 		bot.onSpoil(i)
+	case "setup":
+		bot.onSetup(i)
 	case "source":
 		log.Printf("Source code requested by @%s", interaction.Member.User.Username)
 		bot.respondToInteraction(i, "https://github.com/Alextopher/aocbot", false)
@@ -295,6 +310,36 @@ func (bot *Bot) onSpoil(interaction *discordgo.Interaction) {
 		defered.finalize("Success: You have been given access to the spoiler channels!")
 	} else {
 		defered.finalize("Success: You have been removed from the spoiler channels!")
+	}
+}
+
+func (bot *Bot) onSetup(interaction *discordgo.Interaction) {
+	// Defer the interaction response
+	defered := bot.deferInteraction(interaction, true)
+
+	log.Printf("Setup requested by @%s", interaction.Member.User.Username)
+
+	// Verify that the caller is an admin
+	if !bot.IsAdmin(interaction.Member) {
+		defered.finalize("Error: You must be an admin to set up a channel.")
+		return
+	}
+
+	day := interaction.ApplicationCommandData().Options[0].IntValue()
+
+	guild, err := bot.session.Guild(interaction.GuildID)
+	if err != nil {
+		log.Println("Error getting guild: ", err)
+		defered.finalize("Error: Something went wrong, please try again later.")
+		return
+	}
+
+	// Set up this channel for this day
+	err = bot.SetupChannel(guild, interaction.ChannelID, day)
+	if err != nil {
+		defered.finalize("Error: Something went wrong, please try again later.")
+	} else {
+		defered.finalize("Success: This channel has been set up for spoilers!")
 	}
 }
 
