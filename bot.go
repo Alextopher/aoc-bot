@@ -279,9 +279,9 @@ func (bot *Bot) syncRoles(guild *discordgo.Guild, guildMember *discordgo.Member,
 func (bot *Bot) AddOrRemoveRole(guild *discordgo.Guild, member *discordgo.Member, name string, add bool) error {
 	if add {
 		return bot.AddRole(guild, member, name)
-	} else {
-		return bot.RemoveRole(guild, member, name)
 	}
+
+	return bot.RemoveRole(guild, member, name)
 }
 
 // ToggleRole toggles a role for a user

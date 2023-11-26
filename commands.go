@@ -343,10 +343,7 @@ func (bot *Bot) onSetup(interaction *discordgo.Interaction) {
 	}
 }
 
-// There are 2 methods for responding to interactions:
-// 1. Defer the interaction, then respond to it later
-// 2. Respond to the interaction immediately (must never block)
-// Either way can be ephemeral, but the choice whether to defer or not must be made immediately
+// DeferredInteraction is a small wrapper around an interaction that allows for deferring the response
 type DeferredInteraction struct {
 	interaction *discordgo.Interaction
 	bot         *Bot
