@@ -117,7 +117,7 @@ func (bot *Bot) CreateRoles(guild *discordgo.Guild) error {
 	}
 
 	for i := 25; i > 0; i-- {
-		name := fmt.Sprintf("Day %d", i)
+		name := fmt.Sprintf("Day %02d", i)
 
 		if !bot.CheckRole(guild, name) {
 			_, err := bot.session.GuildRoleCreate(guild.ID, &discordgo.RoleParams{
@@ -147,7 +147,7 @@ func (bot *Bot) CheckRole(guild *discordgo.Guild, name string) bool {
 // SetupChannel sets up a channel for use by a given day (and spoiler)
 func (bot *Bot) SetupChannel(guild *discordgo.Guild, channelID string, day int64) error {
 	// Get the day role
-	roleName := fmt.Sprintf("Day %d", day)
+	roleName := fmt.Sprintf("Day %02d", day)
 	var roleID string
 	for _, role := range guild.Roles {
 		if role.Name == roleName {
@@ -174,20 +174,9 @@ func (bot *Bot) SetupChannel(guild *discordgo.Guild, channelID string, day int64
 		}
 	}
 
-	err := bot.session.ChannelPermissionSet(channelID, roleID, discordgo.PermissionOverwriteTypeRole, discordgo.PermissionViewChannel, 0)
-	if err != nil {
-		return err
-	}
-
-	err = bot.session.ChannelPermissionSet(channelID, spoilerID, discordgo.PermissionOverwriteTypeRole, discordgo.PermissionViewChannel, 0)
-	if err != nil {
-		return err
-	}
-
-	err = bot.session.ChannelPermissionSet(channelID, everyoneID, discordgo.PermissionOverwriteTypeRole, 0, discordgo.PermissionViewChannel)
-	if err != nil {
-		return err
-	}
+	_ = bot.session.ChannelPermissionSet(channelID, roleID, discordgo.PermissionOverwriteTypeRole, discordgo.PermissionViewChannel, 0)
+	_ = bot.session.ChannelPermissionSet(channelID, spoilerID, discordgo.PermissionOverwriteTypeRole, discordgo.PermissionViewChannel, 0)
+	_ = bot.session.ChannelPermissionSet(channelID, everyoneID, discordgo.PermissionOverwriteTypeRole, 0, discordgo.PermissionViewChannel)
 
 	return nil
 }
@@ -266,8 +255,8 @@ func (bot *Bot) syncRoles(guild *discordgo.Guild, guildMember *discordgo.Member,
 
 	// Day 1, 2, 3, ..., 25
 	for day := 1; day <= 25; day++ {
-		role := fmt.Sprintf("Day %d", day)
-		shouldAdd := member.CompletionDayLevel[day] != nil
+		role := fmt.Sprintf("Day %02d", day)
+		shouldAdd := member.CompletionDayLevel[day] != nil && len(member.CompletionDayLevel[day]) > 0
 		err := bot.AddOrRemoveRole(guild, guildMember, role, shouldAdd)
 		if err != nil {
 			log.Println("Error adding/removing role: ", err)
