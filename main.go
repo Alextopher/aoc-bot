@@ -69,8 +69,7 @@ func main() {
 		}
 	}
 
-	// Wait here until CTRL-C or other term signal is received.
-	log.Println("Bot is now running. Press CTRL-C to exit.")
+	log.Println("Press CTRL-C to exit.")
 
 	// Every 15 minutes, sync the bot with the Advent of Code API
 	bot.Sync()

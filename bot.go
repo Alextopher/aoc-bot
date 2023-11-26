@@ -45,15 +45,29 @@ func (bot *Bot) AddGuild(guildID string, year string, leaderboardID string) (err
 	return bot.states[guildID].adventOfCode.UpdateLeaderboard()
 }
 
-// Start starts the bot
+// Start starts the bot (and waits for it to be ready)
 func (bot *Bot) Start() error {
-	return bot.session.Open()
+	ch := make(chan struct{})
+
+	bot.session.AddHandlerOnce(func(s *discordgo.Session, event *discordgo.Ready) {
+		log.Println("Bot is ready.")
+		ch <- struct{}{}
+	})
+
+	err := bot.session.Open()
+	if err != nil {
+		return err
+	}
+
+	<-ch
+
+	return nil
 }
 
 // Sync syncs the bot with the Advent of Code API
 func (bot *Bot) Sync() {
 	for _, guild := range bot.session.State.Guilds {
-		err := bot.SyncRoles(guild)
+		err := bot.SyncAllRoles(guild)
 		if err != nil {
 			log.Println("Error syncing roles: ", err)
 		}
@@ -66,58 +80,10 @@ func (bot *Bot) Sync() {
 func (bot *Bot) CreateRoles(guild *discordgo.Guild) error {
 	True := true
 
-	// 50 stars
-	Yellow := 0xF1C40F
-	if !bot.CheckRole(guild, "50 Stars") {
+	// Spoiler role (allows users to access all channels)
+	if !bot.CheckRole(guild, "Spoiler") {
 		_, err := bot.session.GuildRoleCreate(guild.ID, &discordgo.RoleParams{
-			Name:        "50 Stars",
-			Color:       &Yellow,
-			Mentionable: &True,
-			Hoist:       &True,
-		})
-
-		if err != nil {
-			return err
-		}
-	}
-
-	// 40 stars
-	Orange := 0xE91E63
-	if !bot.CheckRole(guild, "40 Stars") {
-		_, err := bot.session.GuildRoleCreate(guild.ID, &discordgo.RoleParams{
-			Name:        "40 Stars",
-			Color:       &Orange,
-			Mentionable: &True,
-			Hoist:       &True,
-		})
-
-		if err != nil {
-			return err
-		}
-	}
-
-	// 30 stars
-	Red := 0x9B59B6
-	if !bot.CheckRole(guild, "30 Stars") {
-		_, err := bot.session.GuildRoleCreate(guild.ID, &discordgo.RoleParams{
-			Name:        "30 Stars",
-			Color:       &Red,
-			Mentionable: &True,
-			Hoist:       &True,
-		})
-
-		if err != nil {
-			return err
-		}
-	}
-
-	// 20 stars
-	Purple := 0x3498DB
-	if !bot.CheckRole(guild, "20 Stars") {
-		_, err := bot.session.GuildRoleCreate(guild.ID, &discordgo.RoleParams{
-			Name:        "20 Stars",
-			Color:       &Purple,
-			Hoist:       &True,
+			Name:        "Spoiler",
 			Mentionable: &True,
 		})
 
@@ -126,38 +92,41 @@ func (bot *Bot) CreateRoles(guild *discordgo.Guild) error {
 		}
 	}
 
-	// 10 stars
-	Blue := 0x2ECC71
-	if !bot.CheckRole(guild, "10 Stars") {
-		_, err := bot.session.GuildRoleCreate(guild.ID, &discordgo.RoleParams{
-			Name:        "10 Stars",
-			Color:       &Blue,
-			Hoist:       &True,
-			Mentionable: &True,
-		})
+	// Pair role name with color
+	colors := map[string]int{
+		"10 Stars": 0x2ECC71, // Blue
+		"20 Stars": 0x3498DB, // Purple
+		"30 Stars": 0x9B59B6, // Red
+		"40 Stars": 0xE91E63, // Orange
+		"50 Stars": 0xF1C40F, // Yellow
+	}
 
-		if err != nil {
-			return err
+	for name, color := range colors {
+		if !bot.CheckRole(guild, name) {
+			_, err := bot.session.GuildRoleCreate(guild.ID, &discordgo.RoleParams{
+				Name:        name,
+				Color:       &color,
+				Mentionable: &True,
+				Hoist:       &True,
+			})
+
+			if err != nil {
+				return err
+			}
 		}
 	}
 
-	names := make([]string, 0)
 	for i := 25; i > 0; i-- {
-		names = append(names, fmt.Sprintf("Day %d", i))
-	}
+		name := fmt.Sprintf("Day %d", i)
 
-	for _, name := range names {
-		if bot.CheckRole(guild, name) {
-			continue
-		}
+		if !bot.CheckRole(guild, name) {
+			_, err := bot.session.GuildRoleCreate(guild.ID, &discordgo.RoleParams{
+				Name: name,
+			})
 
-		// Create the role
-		_, err := bot.session.GuildRoleCreate(guild.ID, &discordgo.RoleParams{
-			Name: name,
-		})
-
-		if err != nil {
-			return err
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -175,12 +144,35 @@ func (bot *Bot) CheckRole(guild *discordgo.Guild, name string) bool {
 	return false
 }
 
-// SyncRoles updates each user's roles to reflect their current star count
-// and the days they have completed
-func (bot *Bot) SyncRoles(guild *discordgo.Guild) error {
+// SyncMemberRoles syncs a user's roles to reflect their current star count.
+func (bot *Bot) SyncMemberRoles(guild *discordgo.Guild, guildMember *discordgo.Member) (err error) {
 	guildState, ok := bot.states[guild.ID]
 	if !ok {
-		return fmt.Errorf("guild not found")
+		return ErrNotConfigured
+	}
+
+	adventID, ok := guildState.db.GetAdventID(guildMember.User.ID)
+	if !ok {
+		return ErrDoesNotExist
+	}
+
+	// Get the leaderboard
+	leaderboard := guildState.GetLeaderboard()
+
+	// Get the member
+	member, ok := leaderboard.GetMemberByID(adventID)
+	if !ok {
+		return ErrDoesNotExist
+	}
+
+	return bot.syncRoles(guild, guildMember, member)
+}
+
+// SyncAllRoles updates each user's roles to reflect their current star count.
+func (bot *Bot) SyncAllRoles(guild *discordgo.Guild) error {
+	guildState, ok := bot.states[guild.ID]
+	if !ok {
+		return ErrNotConfigured
 	}
 
 	// Get the leaderboard
@@ -200,58 +192,57 @@ func (bot *Bot) SyncRoles(guild *discordgo.Guild) error {
 			return
 		}
 
-		stars := member.Stars
-
-		if stars >= 50 {
-			err = bot.AddRole(guild, guildMember, "50 Stars")
-			if err != nil {
-				log.Println("Error adding role: ", err)
-				return
-			}
-		}
-
-		if stars >= 40 {
-			err = bot.AddRole(guild, guildMember, "40 Stars")
-			if err != nil {
-				log.Println("Error adding role: ", err)
-				return
-			}
-		}
-
-		if stars >= 30 {
-			err = bot.AddRole(guild, guildMember, "30 Stars")
-			if err != nil {
-				log.Println("Error adding role: ", err)
-				return
-			}
-		}
-
-		if stars >= 20 {
-			err = bot.AddRole(guild, guildMember, "20 Stars")
-			if err != nil {
-				log.Println("Error adding role: ", err)
-				return
-			}
-		}
-
-		if stars >= 10 {
-			err = bot.AddRole(guild, guildMember, "10 Stars")
-			if err != nil {
-				log.Println("Error adding role: ", err)
-				return
-			}
-		}
-
-		for day := range member.CompletionDayLevel {
-			err = bot.AddRole(guild, guildMember, fmt.Sprintf("Day %d", day))
-			if err != nil {
-				log.Println("Error adding role: ", err)
-				return
-			}
+		err = bot.syncRoles(guild, guildMember, member)
+		if err != nil {
+			log.Println("Error syncing roles: ", err)
+			return
 		}
 	})
 
 	return nil
+}
+
+// syncRoles reduces code duplication between SyncRoles and SyncAllRoles
+func (bot *Bot) syncRoles(guild *discordgo.Guild, guildMember *discordgo.Member, member *Member) error {
+	stars := member.Stars
+
+	// 10, 20, 30, 40, 50 stars
+	for _, starCount := range []int{10, 20, 30, 40, 50} {
+		role := fmt.Sprintf("%d Stars", starCount)
+		err := bot.AddOrRemoveRole(guild, guildMember, role, stars >= starCount)
+		if err != nil {
+			log.Println("Error adding/removing role: ", err)
+			return err
+		}
+	}
+
+	// Day 1, 2, 3, ..., 25
+	for day := 1; day <= 25; day++ {
+		role := fmt.Sprintf("Day %d", day)
+		shouldAdd := member.CompletionDayLevel[day] != nil
+		err := bot.AddOrRemoveRole(guild, guildMember, role, shouldAdd)
+		if err != nil {
+			log.Println("Error adding/removing role: ", err)
+			return err
+		}
+	}
+
+	return nil
+}
+
+// AddOrRemoveRole adds or removes a role from a user
+func (bot *Bot) AddOrRemoveRole(guild *discordgo.Guild, member *discordgo.Member, name string, add bool) error {
+	if add {
+		return bot.AddRole(guild, member, name)
+	} else {
+		return bot.RemoveRole(guild, member, name)
+	}
+}
+
+// ToggleRole toggles a role for a user
+func (bot *Bot) ToggleRole(guild *discordgo.Guild, member *discordgo.Member, name string) (bool, error) {
+	give := !bot.HasRole(guild, member, name)
+	return give, bot.AddOrRemoveRole(guild, member, name, give)
 }
 
 // AddRole adds a role to a user
@@ -262,5 +253,88 @@ func (bot *Bot) AddRole(guild *discordgo.Guild, member *discordgo.Member, name s
 		}
 	}
 
-	return fmt.Errorf("role not found")
+	return ErrDoesNotExist
+}
+
+// RemoveRole removes a role from a user
+func (bot *Bot) RemoveRole(guild *discordgo.Guild, member *discordgo.Member, name string) error {
+	for _, role := range guild.Roles {
+		if role.Name == name {
+			return bot.session.GuildMemberRoleRemove(guild.ID, member.User.ID, role.ID)
+		}
+	}
+
+	return ErrDoesNotExist
+}
+
+// HasRole checks if a user has a role
+func (bot *Bot) HasRole(guild *discordgo.Guild, member *discordgo.Member, name string) bool {
+	// Get the role ID
+	var roleID string
+	for _, role := range guild.Roles {
+		if role.Name == name {
+			roleID = role.ID
+			break
+		}
+	}
+
+	// Check if the user has the role
+	for _, role := range member.Roles {
+		if role == roleID {
+			return true
+		}
+	}
+
+	return false
+}
+
+// RemoveAllRoles removes all managed roles from a user
+func (bot *Bot) RemoveAllRoles(guild *discordgo.Guild, member *discordgo.Member) error {
+	managedRoles := []string{
+		"10 Stars", "20 Stars", "30 Stars", "40 Stars", "50 Stars",
+		"Day 1", "Day 2", "Day 3", "Day 4", "Day 5",
+		"Day 6", "Day 7", "Day 8", "Day 9", "Day 10",
+		"Day 11", "Day 12", "Day 13", "Day 14", "Day 15",
+		"Day 16", "Day 17", "Day 18", "Day 19", "Day 20",
+		"Day 21", "Day 22", "Day 23", "Day 24", "Day 25",
+		"Spoiler",
+	}
+
+	for _, roleID := range member.Roles {
+		// Get the name of the role
+		var roleName string
+		for _, role := range guild.Roles {
+			if role.ID == roleID {
+				roleName = role.Name
+				break
+			}
+		}
+
+		// Check if the role is managed
+		managed := false
+		for _, managedRole := range managedRoles {
+			if roleName == managedRole {
+				managed = true
+				break
+			}
+		}
+
+		if managed {
+			err := bot.session.GuildMemberRoleRemove(guild.ID, member.User.ID, roleID)
+			if err != nil {
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
+// Bit-mask to be considered an admin
+const isAdmin = discordgo.PermissionAdministrator | discordgo.PermissionManageRoles
+
+// IsAdmin checks if a user is an admin
+func (bot *Bot) IsAdmin(member *discordgo.Member) bool {
+	return member.Permissions&isAdmin != 0
 }

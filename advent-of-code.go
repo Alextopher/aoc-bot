@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"net/http"
 	"net/url"
 	"sync"
@@ -50,6 +51,7 @@ func (aoc *AdventOfCode) UpdateLeaderboard() error {
 
 	url, err := url.Parse(requestURL)
 	if err != nil {
+		log.Println("Error while parsing URL: ", err)
 		return err
 	}
 
@@ -64,11 +66,13 @@ func (aoc *AdventOfCode) UpdateLeaderboard() error {
 
 	response, err := http.DefaultClient.Do(&request)
 	if err != nil {
+		log.Println("Error while making request: ", err)
 		return err
 	}
 
 	leaderboard, err := ParseLeaderboard(response.Body)
 	if err != nil {
+		log.Println("Error while parsing response: ", err)
 		return err
 	}
 
@@ -77,5 +81,6 @@ func (aoc *AdventOfCode) UpdateLeaderboard() error {
 	aoc.lastUpdated = time.Now()
 	aoc.Unlock()
 
+	log.Println("Updated leaderboard for (" + aoc.year + ", " + aoc.id + ")")
 	return nil
 }

@@ -68,6 +68,11 @@ func (guildState *GuildState) ClaimID(discordUserID string, id string) error {
 	return guildState.db.Claim(discordUserID, id)
 }
 
+// Unclaim removes a claim from a user by Discord ID
+func (guildState *GuildState) Unclaim(discordUserID string) error {
+	return guildState.db.Unclaim(discordUserID)
+}
+
 // CloseNames gets a list of 3 close names to the given name
 func (guildState *GuildState) CloseNames(username string) ([]string, error) {
 	return guildState.GetLeaderboard().CloseNames(username)
