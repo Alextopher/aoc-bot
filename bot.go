@@ -94,11 +94,12 @@ func (bot *Bot) CreateRoles(guild *discordgo.Guild) error {
 
 	// Pair role name with color
 	colors := map[string]int{
-		"10 Stars": 0x2ECC71, // Blue
-		"20 Stars": 0x3498DB, // Purple
-		"30 Stars": 0x9B59B6, // Red
-		"40 Stars": 0xE91E63, // Orange
-		"50 Stars": 0xF1C40F, // Yellow
+		"50 Stars":  0xF1C40F, // Yellow
+		"40 Stars":  0xE91E63, // Orange
+		"30 Stars":  0x9B59B6, // Red
+		"20 Stars":  0x3498DB, // Purple
+		"10 Stars":  0x2ECC71, // Blue
+		"Connected": 0x1ABC9C, // Green
 	}
 
 	for name, color := range colors {
@@ -334,7 +335,7 @@ func (bot *Bot) RemoveAllRoles(guild *discordgo.Guild, member *discordgo.Member)
 		"Day 11", "Day 12", "Day 13", "Day 14", "Day 15",
 		"Day 16", "Day 17", "Day 18", "Day 19", "Day 20",
 		"Day 21", "Day 22", "Day 23", "Day 24", "Day 25",
-		"Spoiler",
+		"Spoiler", "Connected",
 	}
 
 	for _, roleID := range member.Roles {
