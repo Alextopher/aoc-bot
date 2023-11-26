@@ -95,11 +95,11 @@ func (bot *Bot) CreateRoles(guild *discordgo.Guild) error {
 	// Pair role name with color
 	colors := map[string]int{
 		"50 Stars":  0xF1C40F, // Yellow
-		"40 Stars":  0xE91E63, // Orange
-		"30 Stars":  0x9B59B6, // Red
-		"20 Stars":  0x3498DB, // Purple
-		"10 Stars":  0x2ECC71, // Blue
-		"Connected": 0x1ABC9C, // Green
+		"40 Stars":  0xE91E63, // Red
+		"30 Stars":  0x9B59B6, // Purple
+		"20 Stars":  0x3498DB, // Blue
+		"10 Stars":  0x2ECC71, // Green
+		"Connected": 0x1ABC9C, // Less Green
 	}
 
 	for name, color := range colors {
@@ -252,6 +252,13 @@ func (bot *Bot) syncRoles(guild *discordgo.Guild, guildMember *discordgo.Member,
 			log.Println("Error adding/removing role: ", err)
 			return err
 		}
+	}
+
+	// Connected
+	err := bot.AddRole(guild, guildMember, "Connected")
+	if err != nil {
+		log.Println("Error adding role: ", err)
+		return err
 	}
 
 	// Day 1, 2, 3, ..., 25
