@@ -29,6 +29,11 @@ func (bot *Bot) RegisterCommands() error {
 			Type:        discordgo.ChatApplicationCommand,
 		},
 		{
+			Name:        "source",
+			Description: "Returns the source code for the bot",
+			Type:        discordgo.ChatApplicationCommand,
+		},
+		{
 			Name:        "help",
 			Description: "Shows help",
 			Type:        discordgo.ChatApplicationCommand,
@@ -58,10 +63,12 @@ func (bot *Bot) onInteractionCreate(session *discordgo.Session, interaction *dis
 	switch interaction.ApplicationCommandData().Name {
 	case "claim":
 		bot.onClaim(interaction)
-	case "help":
-		bot.onHelp(interaction)
 	case "stars":
 		bot.onStars(interaction)
+	case "source":
+		bot.respondToInteraction(interaction, "https://github.com/Alextopher/aocbot", false)
+	case "help":
+		bot.onHelp(interaction)
 	}
 }
 
@@ -127,7 +134,7 @@ func (bot *Bot) onClaim(interaction *discordgo.InteractionCreate) {
 func (bot *Bot) onHelp(interaction *discordgo.InteractionCreate) {
 	log.Printf("Help requested by @%s", interaction.Member.User.Username)
 
-	help := "Help:\n- `/claim <username>`: Claims a username by Advent of Code name (or ID)\n- `/stars` returns how many stars you have collected (mostly for debugging)\n- `/help`: Shows this help message"
+	help := "Help:\n- `/claim <username>`: Claims a username by Advent of Code name (or ID)\n- `/stars` returns how many stars I think you have collected (mostly for debugging)\n- `/source`: links my source code\n- `/help`: Shows this help message"
 	bot.respondToInteraction(interaction, help, false)
 }
 
