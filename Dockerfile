@@ -7,6 +7,6 @@ RUN go mod download
 
 COPY *.go ./
 
-RUN go build
+RUN go build -v
 
 CMD ["./aocbot"]
