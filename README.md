@@ -1,6 +1,6 @@
 # aocbot
 
-![image](https://github.com/Alextopher/aocbot/assets/56850185/c00a71dc-38d9-4063-92d0-5d9c737aba86)
+![image](https://github.com/Alextopher/aocbot/assets/56850185/7241d3f5-a092-47fd-91e9-4b11a4017426)
 
 A Discord bot that connects to the Advent of Code leaderboard API. It dishes out roles for achieving star milestones and unlocks daily discussion channels after challenge completion.
 
