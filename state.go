@@ -38,6 +38,11 @@ func NewGuildState(sessionCookie, year, id string, log *os.File) (*GuildState, e
 func (guildState *GuildState) ClaimName(discordUserID string, username string) error {
 	member, ok := guildState.GetLeaderboard().GetMemberByName(username)
 	if !ok {
+		// Update the leaderboard and try again
+		member, ok = guildState.UpdateLeaderboard().GetMemberByName(username)
+	}
+
+	if !ok {
 		return ErrDoesNotExist
 	}
 
@@ -54,6 +59,11 @@ func (guildState *GuildState) ClaimName(discordUserID string, username string) e
 // ClaimID claims a user by Advent of Code ID
 func (guildState *GuildState) ClaimID(discordUserID string, id string) error {
 	member, ok := guildState.GetLeaderboard().GetMemberByID(id)
+	if !ok {
+		// Update the leaderboard and try again
+		member, ok = guildState.UpdateLeaderboard().GetMemberByID(id)
+	}
+
 	if !ok {
 		return ErrDoesNotExist
 	}
@@ -80,5 +90,11 @@ func (guildState *GuildState) CloseNames(username string) ([]string, error) {
 
 // GetLeaderboard is wrapper for guildState.adventOfCode.GetLeaderboard()
 func (guildState *GuildState) GetLeaderboard() *Leaderboard {
+	return guildState.adventOfCode.GetLeaderboard()
+}
+
+// UpdateLeaderboard updates the leaderboard before returning it
+func (guildState *GuildState) UpdateLeaderboard() *Leaderboard {
+	guildState.adventOfCode.UpdateLeaderboard()
 	return guildState.adventOfCode.GetLeaderboard()
 }
