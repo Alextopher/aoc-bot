@@ -1,4 +1,4 @@
-# aocbot
+# aoc-bot
 
 ![image](https://github.com/Alextopher/aocbot/assets/56850185/7241d3f5-a092-47fd-91e9-4b11a4017426)
 

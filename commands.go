@@ -108,7 +108,7 @@ func (bot *Bot) onInteractionCreate(session *discordgo.Session, interaction *dis
 		bot.onSetup(i)
 	case "source":
 		log.Printf("Source code requested by @%s", interaction.Member.User.Username)
-		bot.respondToInteraction(i, "https://github.com/Alextopher/aocbot", false)
+		bot.respondToInteraction(i, "https://github.com/Alextopher/aoc-bot", false)
 	case "help":
 		log.Printf("Help requested by @%s", interaction.Member.User.Username)
 		msg := "Help:\n"
@@ -124,7 +124,7 @@ func (bot *Bot) onInteractionCreate(session *discordgo.Session, interaction *dis
 }
 
 func (bot *Bot) onClaim(interaction *discordgo.Interaction) {
-	defered := bot.deferInteraction(interaction, true)
+	deferred := bot.deferInteraction(interaction, true)
 
 	username := interaction.ApplicationCommandData().Options[0].StringValue()
 
@@ -133,7 +133,7 @@ func (bot *Bot) onClaim(interaction *discordgo.Interaction) {
 	// Get the guild state
 	guildState, ok := bot.states[interaction.GuildID]
 	if !ok {
-		defered.finalize("Error: This guild is not configured, yet.")
+		deferred.finalize("Error: This guild is not configured, yet.")
 		return
 	}
 
@@ -149,7 +149,7 @@ func (bot *Bot) onClaim(interaction *discordgo.Interaction) {
 		closeNames, err := guildState.CloseNames(username)
 		if err != nil {
 			// Report that their name is invalid
-			defered.finalize("Error: I couldn't find that user.")
+			deferred.finalize("Error: I couldn't find that user.")
 			return
 		}
 
@@ -159,7 +159,7 @@ func (bot *Bot) onClaim(interaction *discordgo.Interaction) {
 			message += fmt.Sprintf("- '%s'\n", name)
 		}
 
-		defered.finalize(message)
+		deferred.finalize(message)
 	} else if err == ErrAlreadyClaimed {
 		// Check if this user just tried to re-claim themselves
 		aocID, ok := guildState.db.GetAdventID(interaction.Member.User.ID)
@@ -167,19 +167,19 @@ func (bot *Bot) onClaim(interaction *discordgo.Interaction) {
 			member, ok := guildState.GetLeaderboard().GetMemberByID(aocID)
 			if aocID == username || (ok && member.Name == username) {
 				// Report that this user just tried to re-claim themselves
-				defered.finalize("You have already claimed this user :smile:")
+				deferred.finalize("You have already claimed this user :smile:")
 				return
 			}
 		}
 
 		// Report that the user has already been claimed
-		defered.finalize("Error: This user has already been claimed, if you believe this is an error, please contact an administrator")
+		deferred.finalize("Error: This user has already been claimed, if you believe this is an error, please contact an administrator")
 	} else if err != nil {
 		// Report that something went wrong
-		defered.finalize("Error: Something went wrong, please try again later.")
+		deferred.finalize("Error: Something went wrong, please try again later.")
 	} else {
 		// Report that the user has been claimed
-		defered.finalize("Success: You have claimed your Advent of Code user!")
+		deferred.finalize("Success: You have claimed your Advent of Code user!")
 	}
 
 	guild, err := bot.session.State.Guild(interaction.GuildID)
@@ -198,7 +198,7 @@ func (bot *Bot) onClaim(interaction *discordgo.Interaction) {
 
 func (bot *Bot) onUnclaim(interaction *discordgo.Interaction) {
 	// Defer the interaction response
-	defered := bot.deferInteraction(interaction, true)
+	deferred := bot.deferInteraction(interaction, true)
 
 	// Get the optional user
 	user := interaction.Member.User
@@ -207,7 +207,7 @@ func (bot *Bot) onUnclaim(interaction *discordgo.Interaction) {
 	if len(interaction.ApplicationCommandData().Options) > 0 {
 		// Verify that the caller is an admin
 		if !bot.IsAdmin(interaction.Member) {
-			defered.finalize("Error: You must be an admin to remove another user's claim.")
+			deferred.finalize("Error: You must be an admin to remove another user's claim.")
 			return
 		}
 
@@ -220,7 +220,7 @@ func (bot *Bot) onUnclaim(interaction *discordgo.Interaction) {
 	// Get the guild state
 	guildState, ok := bot.states[interaction.GuildID]
 	if !ok {
-		defered.finalize("Error: This guild is not configured, yet.")
+		deferred.finalize("Error: This guild is not configured, yet.")
 		return
 	}
 
@@ -230,19 +230,19 @@ func (bot *Bot) onUnclaim(interaction *discordgo.Interaction) {
 	if err == ErrDoesNotExist {
 		// Report that the discord user never claimed an Advent of Code user
 		if self {
-			defered.finalize("Success?: You ever claimed an Advent of Code user.")
+			deferred.finalize("Success?: You ever claimed an Advent of Code user.")
 		} else {
-			defered.finalize("Success?: That user never claimed an Advent of Code user.")
+			deferred.finalize("Success?: That user never claimed an Advent of Code user.")
 		}
 	} else if err != nil {
 		// Report that something went wrong
-		defered.finalize("Error: Something went wrong, please try again later.")
+		deferred.finalize("Error: Something went wrong, please try again later.")
 	} else {
 		// Report that the user has been unclaimed
 		if self {
-			defered.finalize("Success: You have unclaimed your Advent of Code user!")
+			deferred.finalize("Success: You have unclaimed your Advent of Code user!")
 		} else {
-			defered.finalize("Success: That user has been unclaimed!")
+			deferred.finalize("Success: That user has been unclaimed!")
 		}
 	}
 
@@ -264,64 +264,64 @@ func (bot *Bot) onUnclaim(interaction *discordgo.Interaction) {
 
 func (bot *Bot) onStars(interaction *discordgo.Interaction) {
 	// Defer the interaction response
-	defered := bot.deferInteraction(interaction, true)
+	deferred := bot.deferInteraction(interaction, true)
 
 	log.Printf("Star count requested by @%s", interaction.Member.User.Username)
 
 	guildState, ok := bot.states[interaction.GuildID]
 	if !ok {
-		defered.finalize("Error: This guild is not configured, yet.")
+		deferred.finalize("Error: This guild is not configured, yet.")
 		return
 	}
 
 	id, ok := guildState.db.GetAdventID(interaction.Member.User.ID)
 	if !ok {
-		defered.finalize("Error: You haven't ran `/claim` yet.")
+		deferred.finalize("Error: You haven't ran `/claim` yet.")
 		return
 	}
 
 	member, ok := guildState.GetLeaderboard().GetMemberByID(id)
 	if !ok {
-		defered.finalize("Error: Something odd happened here, did you quit the leaderboard?")
+		deferred.finalize("Error: Something odd happened here, did you quit the leaderboard?")
 		return
 	}
 
 	msg := fmt.Sprintf("You have collected **%d** stars!", member.Stars)
-	defered.finalize(msg)
+	deferred.finalize(msg)
 }
 
 func (bot *Bot) onSpoil(interaction *discordgo.Interaction) {
-	defered := bot.deferInteraction(interaction, true)
+	deferred := bot.deferInteraction(interaction, true)
 
 	log.Printf("Toggling spoilers has been requested by @%s", interaction.Member.User.Username)
 
 	guild, err := bot.session.State.Guild(interaction.GuildID)
 	if err != nil {
 		log.Println("Error getting guild: ", err)
-		defered.finalize("Error: Something went wrong, please try again later.")
+		deferred.finalize("Error: Something went wrong, please try again later.")
 		return
 	}
 
 	added, err := bot.ToggleRole(guild, interaction.Member, "Spoiler")
 	if err != nil {
 		log.Println("Error toggling role: ", err)
-		defered.finalize("Error: Something went wrong, please try again later.")
+		deferred.finalize("Error: Something went wrong, please try again later.")
 	} else if added {
-		defered.finalize("Success: You have been given access to the spoiler channels!")
+		deferred.finalize("Success: You have been given access to the spoiler channels!")
 	} else {
-		defered.finalize("Success: You have been removed from the spoiler channels!")
+		deferred.finalize("Success: You have been removed from the spoiler channels!")
 	}
 }
 
 func (bot *Bot) onSetup(interaction *discordgo.Interaction) {
 	// Defer the interaction response
-	defered := bot.deferInteraction(interaction, true)
+	deferred := bot.deferInteraction(interaction, true)
 
 	log.Printf("Setup requested by @%s", interaction.Member.User.Username)
 
 	// Verify that the caller is an admin
 	if !bot.IsAdmin(interaction.Member) {
-		defered.finalize("Error: You must be an admin to set up a channel.")
+		deferred.finalize("Error: You must be an admin to set up a channel.")
 		return
 	}
 
@@ -330,16 +330,16 @@ func (bot *Bot) onSetup(interaction *discordgo.Interaction) {
 	guild, err := bot.session.Guild(interaction.GuildID)
 	if err != nil {
 		log.Println("Error getting guild: ", err)
-		defered.finalize("Error: Something went wrong, please try again later.")
+		deferred.finalize("Error: Something went wrong, please try again later.")
 		return
 	}
 
 	// Set up this channel for this day
 	err = bot.SetupChannel(guild, interaction.ChannelID, day)
 	if err != nil {
-		defered.finalize("Error: Something went wrong, please try again later.")
+		deferred.finalize("Error: Something went wrong, please try again later.")
 	} else {
-		defered.finalize("Success: This channel has been set up for spoilers!")
+		deferred.finalize("Success: This channel has been set up for spoilers!")
 	}
 }
 
