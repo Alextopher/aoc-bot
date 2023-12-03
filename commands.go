@@ -40,6 +40,14 @@ func (bot *Bot) RegisterCommands() error {
 			Name:        "stars",
 			Description: "Returns how many stars you have collected (debugging)",
 			Type:        discordgo.ChatApplicationCommand,
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Name:        "member",
+					Description: "The _discord_ user to get the star count for",
+					Type:        discordgo.ApplicationCommandOptionUser,
+					Required:    false,
+				},
+			},
 		},
 		{
 			Name:        "spoilers",
@@ -266,7 +274,12 @@ func (bot *Bot) onStars(interaction *discordgo.Interaction) {
 	// Defer the interaction response
 	deferred := bot.deferInteraction(interaction, true)
 
-	log.Printf("Star count requested by @%s", interaction.Member.User.Username)
+	user := interaction.Member.User
+	if len(interaction.ApplicationCommandData().Options) > 0 {
+		user = interaction.ApplicationCommandData().Options[0].UserValue(bot.session)
+	}
+
+	log.Printf("Star count for @%s requested by @%s", user, interaction.Member.User.Username)
 
 	guildState, ok := bot.states[interaction.GuildID]
 	if !ok {
@@ -274,7 +287,9 @@ func (bot *Bot) onStars(interaction *discordgo.Interaction) {
 		return
 	}
 
-	id, ok := guildState.db.GetAdventID(interaction.Member.User.ID)
+	guildState.UpdateLeaderboard()
+
+	id, ok := guildState.db.GetAdventID(user.ID)
 	if !ok {
 		deferred.finalize("Error: You haven't ran `/claim` yet.")
 		return
@@ -286,6 +301,16 @@ func (bot *Bot) onStars(interaction *discordgo.Interaction) {
 		return
 	}
 
+	// Sync the user's roles
+	guild, err := bot.session.State.Guild(interaction.GuildID)
+	if err != nil {
+		deferred.finalize("Error: Something went wrong, please try again later.")
+		return
+	}
+
+	bot.SyncMemberRoles(guild, interaction.Member)
+
+	// Success!
 	msg := fmt.Sprintf("You have collected **%d** stars!", member.Stars)
 	deferred.finalize(msg)
 }
