@@ -67,16 +67,7 @@ func main() {
 	// Every 15 minutes, sync the bot with the Advent of Code API
 	bot.Sync()
 
-	// Sleep until the next 15 minute mark
-	now := time.Now()
-	minutes := time.Duration(15 - (now.Minute() % 15))
-	seconds := time.Duration(60 - now.Second())
-	time.Sleep(minutes*time.Minute + seconds*time.Second)
-
 	ticker := time.NewTicker(15 * time.Minute)
-
-	// Start syncing every 15 minutes
-	bot.Sync()
 	for {
 		<-ticker.C
 		bot.Sync()
