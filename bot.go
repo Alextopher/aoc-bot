@@ -69,7 +69,7 @@ func (bot *Bot) Sync() {
 	for _, guild := range bot.session.State.Guilds {
 		err := bot.SyncAllRoles(guild)
 		if err != nil {
-			log.Println("Error syncing roles: ", err)
+			log.Println("Error (Sync) syncing roles: ", err)
 		}
 	}
 }
@@ -219,20 +219,19 @@ func (bot *Bot) SyncAllRoles(guild *discordgo.Guild) error {
 	guildState.db.GoForEach(func(discord_id, advent_id string) {
 		member, ok := leaderboard.GetMemberByID(advent_id)
 		if !ok {
-			log.Printf("Error: Member %s not found\n", advent_id)
+			log.Printf("Error (SyncAllRoles): Member %s not found\n", advent_id)
 			return
 		}
 
 		// Get the member
 		guildMember, err := bot.session.GuildMember(guild.ID, discord_id)
 		if err != nil {
-			log.Printf("Error: Guild Member %s not found\n", discord_id)
+			log.Printf("Error (SyncAllRoles): Guild Member %s not found\n", discord_id)
 			return
 		}
 
 		err = bot.syncRoles(guild, guildMember, member)
 		if err != nil {
-			log.Println("Error syncing roles: ", err)
 			return
 		}
 	})
@@ -249,7 +248,7 @@ func (bot *Bot) syncRoles(guild *discordgo.Guild, guildMember *discordgo.Member,
 		role := fmt.Sprintf("%d Stars", starCount)
 		err := bot.AddOrRemoveRole(guild, guildMember, role, stars >= starCount)
 		if err != nil {
-			log.Println("Error adding/removing role: ", err)
+			log.Println("Error (syncRoles) adding/removing role: ", err)
 			return err
 		}
 	}
@@ -257,7 +256,7 @@ func (bot *Bot) syncRoles(guild *discordgo.Guild, guildMember *discordgo.Member,
 	// Connected
 	err := bot.AddRole(guild, guildMember, "Connected")
 	if err != nil {
-		log.Println("Error adding role: ", err)
+		log.Println("Error (syncRoles) adding role: ", err)
 		return err
 	}
 
@@ -267,7 +266,7 @@ func (bot *Bot) syncRoles(guild *discordgo.Guild, guildMember *discordgo.Member,
 		shouldAdd := member.CompletionDayLevel[day] != nil && len(member.CompletionDayLevel[day]) > 0
 		err := bot.AddOrRemoveRole(guild, guildMember, role, shouldAdd)
 		if err != nil {
-			log.Println("Error adding/removing role: ", err)
+			log.Println("Error (syncRoles) adding/removing role: ", err)
 			return err
 		}
 	}
