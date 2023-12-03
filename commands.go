@@ -275,8 +275,10 @@ func (bot *Bot) onStars(interaction *discordgo.Interaction) {
 	deferred := bot.deferInteraction(interaction, true)
 
 	user := interaction.Member.User
+	self := true
 	if len(interaction.ApplicationCommandData().Options) > 0 {
 		user = interaction.ApplicationCommandData().Options[0].UserValue(bot.session)
+		self = false
 	}
 
 	log.Printf("Star count for @%s requested by @%s", user, interaction.Member.User.Username)
@@ -295,7 +297,7 @@ func (bot *Bot) onStars(interaction *discordgo.Interaction) {
 		return
 	}
 
-	member, ok := guildState.GetLeaderboard().GetMemberByID(id)
+	advent_member, ok := guildState.GetLeaderboard().GetMemberByID(id)
 	if !ok {
 		deferred.finalize("Error 11: Something odd happened here, did you quit the leaderboard?")
 		return
@@ -308,11 +310,27 @@ func (bot *Bot) onStars(interaction *discordgo.Interaction) {
 		return
 	}
 
-	bot.SyncMemberRoles(guild, interaction.Member)
-
 	// Success!
-	msg := fmt.Sprintf("You have collected **%d** stars!", member.Stars)
-	deferred.finalize(msg)
+	if self {
+		msg := fmt.Sprintf("You have collected **%d** stars!", advent_member.Stars)
+		deferred.finalize(msg)
+	} else {
+		msg := fmt.Sprintf("They have collected **%d** stars!", advent_member.Stars)
+		deferred.finalize(msg)
+	}
+
+	member, err := bot.session.GuildMember(guild.ID, user.ID)
+	if err != nil {
+		log.Println("Error (onStars) getting guild member: ", err)
+		return
+	}
+
+	log.Printf("Syncing roles for @%s", member.User.Username)
+	err = bot.SyncMemberRoles(guild, member)
+	if err != nil {
+		log.Println("Error (onStars) syncing roles: ", err)
+		return
+	}
 }
 
 func (bot *Bot) onSpoil(interaction *discordgo.Interaction) {
