@@ -291,6 +291,12 @@ func (bot *Bot) ToggleRole(guild *discordgo.Guild, member *discordgo.Member, nam
 
 // AddRole adds a role to a user
 func (bot *Bot) AddRole(guild *discordgo.Guild, member *discordgo.Member, name string) error {
+	// Check if the user already has the role
+	if bot.HasRole(guild, member, name) {
+		return nil
+	}
+
+	log.Printf("Adding role %s to %s\n", name, member.User.Username)
 	for _, role := range guild.Roles {
 		if role.Name == name {
 			return bot.session.GuildMemberRoleAdd(guild.ID, member.User.ID, role.ID)
@@ -302,6 +308,12 @@ func (bot *Bot) AddRole(guild *discordgo.Guild, member *discordgo.Member, name s
 
 // RemoveRole removes a role from a user
 func (bot *Bot) RemoveRole(guild *discordgo.Guild, member *discordgo.Member, name string) error {
+	// Check if the user already doesn't have the role
+	if !bot.HasRole(guild, member, name) {
+		return nil
+	}
+
+	log.Printf("Removing role %s from %s\n", name, member.User.Username)
 	for _, role := range guild.Roles {
 		if role.Name == name {
 			return bot.session.GuildMemberRoleRemove(guild.ID, member.User.ID, role.ID)
