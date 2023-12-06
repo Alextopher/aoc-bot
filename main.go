@@ -67,6 +67,7 @@ func main() {
 	// Every 15 minutes, sync the bot with the Advent of Code API
 	bot.Sync()
 
+	// Ticker gets initialized
 	ticker := time.NewTicker(15 * time.Minute)
 	for {
 		<-ticker.C

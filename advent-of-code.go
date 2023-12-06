@@ -11,6 +11,8 @@ import (
 // User Agent used for requests
 const userAgent = "github.com/Alextopher/aocbot"
 
+var ticker *time.Ticker
+
 // AdventOfCode is an Advent of Code API client
 type AdventOfCode struct {
 	sync.RWMutex
@@ -36,6 +38,7 @@ func NewAdventOfCode(sessionCookie string, year string, id string) *AdventOfCode
 func (aoc *AdventOfCode) GetLeaderboard() *Leaderboard {
 	if time.Since(aoc.lastUpdated) > 15*time.Minute {
 		aoc.UpdateLeaderboard()
+		ticker.Reset(15)
 	}
 
 	aoc.RLock()
