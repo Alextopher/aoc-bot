@@ -297,7 +297,7 @@ func (bot *Bot) onStars(interaction *discordgo.Interaction) {
 		return
 	}
 
-	advent_member, ok := guildState.GetLeaderboard().GetMemberByID(id)
+	aocMember, ok := guildState.GetLeaderboard().GetMemberByID(id)
 	if !ok {
 		deferred.finalize("Error 11: Something odd happened here, did you quit the leaderboard?")
 		return
@@ -312,10 +312,10 @@ func (bot *Bot) onStars(interaction *discordgo.Interaction) {
 
 	// Success!
 	if self {
-		msg := fmt.Sprintf("You have collected **%d** stars!", advent_member.Stars)
+		msg := fmt.Sprintf("You have collected **%d** stars!", aocMember.Stars)
 		deferred.finalize(msg)
 	} else {
-		msg := fmt.Sprintf("They have collected **%d** stars!", advent_member.Stars)
+		msg := fmt.Sprintf("They have collected **%d** stars!", aocMember.Stars)
 		deferred.finalize(msg)
 	}
 
