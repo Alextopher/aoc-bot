@@ -38,7 +38,7 @@ func NewAdventOfCode(sessionCookie string, year string, id string) *AdventOfCode
 func (aoc *AdventOfCode) GetLeaderboard() *Leaderboard {
 	if time.Since(aoc.lastUpdated) > 15*time.Minute {
 		aoc.UpdateLeaderboard()
-		ticker.Reset(15)
+		ticker.Reset(15 * time.Minute)
 	}
 
 	aoc.RLock()
