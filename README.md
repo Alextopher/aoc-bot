@@ -2,11 +2,11 @@
 
 ![image](https://github.com/Alextopher/aocbot/assets/56850185/7241d3f5-a092-47fd-91e9-4b11a4017426)
 
-A Discord bot that connects to the [Advent of Code](https://adventofcode.com) private leaderboard API. It hands out roles for achieving star milestones and unlocks daily discussion channels after challenge completion.
+A Discord bot that connects to the Advent of Code private leaderboard API. It hands out roles for achieving star milestones and unlocks daily discussion channels after challenge completion.
 
-This bot is currently a **minimum viable product**. There is no usage document and that isn't a priority yet. Get in contact with me if you want to add this to another server, I might be able to host it for the time being.
+This bot is currently a minimum viable product. There is no usage document, and that isn't a priority yet. Get in contact with me if you want to add this to another server; I might be able to host it for the time being.
 
-This year (2023) will serve as a trail run. I will take what I learn and will try to tidy it up and launch it as a larger project in 2024.
+This year (2023) will serve as a trial run. I will take what I learn and try to tidy it up and launch it as a larger project in 2024.
 
 ## License (MIT)
 
