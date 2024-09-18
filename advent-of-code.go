@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -15,39 +16,42 @@ const userAgent = "github.com/Alextopher/aocbot"
 type AdventOfCode struct {
 	sync.RWMutex
 
-	year          string
 	id            string
 	sessionCookie string
 
-	leaderboard *Leaderboard
-	lastUpdated time.Time
+	leaderboards map[string]*Leaderboard
+	lastUpdated  time.Time
 }
 
 // NewAdventOfCode creates a new Advent of Code API
-func NewAdventOfCode(sessionCookie string, year string, id string) *AdventOfCode {
+func NewAdventOfCode(sessionCookie string, id string) *AdventOfCode {
 	return &AdventOfCode{
 		sessionCookie: sessionCookie,
-		year:          year,
+		leaderboards:  make(map[string]*Leaderboard),
 		id:            id,
 	}
 }
 
 // GetLeaderboard gets the most recent leaderboard data from the API
-func (aoc *AdventOfCode) GetLeaderboard() *Leaderboard {
+func (aoc *AdventOfCode) GetLeaderboard(year string) *Leaderboard {
 	if time.Since(aoc.lastUpdated) > 15*time.Minute {
-		aoc.UpdateLeaderboard()
+		aoc.UpdateLeaderboard(year)
 	}
 
 	aoc.RLock()
-	leaderboard := aoc.leaderboard
+	leaderboard, ok := aoc.leaderboards[year]
+	if !ok {
+		log.Println("Leaderboard not found for year: ", year)
+	}
 	aoc.RUnlock()
 
 	return leaderboard
 }
 
 // UpdateLeaderboard updates a leaderboard by getting the latest data from the API
-func (aoc *AdventOfCode) UpdateLeaderboard() error {
-	requestURL := "https://adventofcode.com/" + aoc.year + "/leaderboard/private/view/" + aoc.id + ".json"
+func (aoc *AdventOfCode) UpdateLeaderboard(year string) error {
+	requestURL := "https://adventofcode.com/" + year + "/leaderboard/private/view/" + aoc.id + ".json"
+	fmt.Println(requestURL)
 
 	url, err := url.Parse(requestURL)
 	if err != nil {
@@ -70,6 +74,12 @@ func (aoc *AdventOfCode) UpdateLeaderboard() error {
 		return err
 	}
 
+	// Check the content type of the response, if it's not JSON then we can't parse it
+	contentType := response.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		return ErrInvalidSession
+	}
+
 	leaderboard, err := ParseLeaderboard(response.Body)
 	if err != nil {
 		log.Println("Error while parsing response: ", err)
@@ -77,10 +87,10 @@ func (aoc *AdventOfCode) UpdateLeaderboard() error {
 	}
 
 	aoc.Lock()
-	aoc.leaderboard = leaderboard
+	aoc.leaderboards[year] = leaderboard
 	aoc.lastUpdated = time.Now()
 	aoc.Unlock()
 
-	log.Println("Updated leaderboard for (" + aoc.year + ", " + aoc.id + ")")
+	log.Printf("Updated leaderboard for (%s, %s)\n", aoc.id, year)
 	return nil
 }

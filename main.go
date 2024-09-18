@@ -39,7 +39,7 @@ func main() {
 
 	// Add guilds
 	for guildID, guildConfig := range config.Guilds {
-		err = bot.AddGuild(guildID, guildConfig.Year, guildConfig.LeaderboardID)
+		err = bot.AddGuild(guildID, guildConfig)
 		if err != nil {
 			log.Fatalln("Error adding guild: ", err)
 		}

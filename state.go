@@ -15,22 +15,29 @@ var ErrAlreadyClaimed = errors.New("user is already claimed")
 // ErrDoesNotExist is returned when a user does not exist
 var ErrDoesNotExist = errors.New("user does not exist")
 
+// ErrInvalidSession is returned when the advent of code session is invalid
+var ErrInvalidSession = errors.New("advent of code session has expired, please update the session cookie")
+
 // GuildState keeps track of the state of a single guild
 type GuildState struct {
 	adventOfCode *AdventOfCode
 	db           *Database
+	year         string
+	daily_roles  bool
 }
 
 // NewGuildState creates a new guild state
-func NewGuildState(sessionCookie, year, id string, log *os.File) (*GuildState, error) {
+func NewGuildState(sessionCookie string, config GuildConfig, log *os.File) (*GuildState, error) {
 	database, err := NewDatabase(log, log)
 	if err != nil {
 		return nil, err
 	}
 
 	return &GuildState{
-		adventOfCode: NewAdventOfCode(sessionCookie, year, id),
+		adventOfCode: NewAdventOfCode(sessionCookie, config.LeaderboardID),
 		db:           database,
+		year:         config.Year,
+		daily_roles:  config.DailyRoles,
 	}, nil
 }
 
@@ -90,11 +97,11 @@ func (guildState *GuildState) CloseNames(username string) ([]string, error) {
 
 // GetLeaderboard is wrapper for guildState.adventOfCode.GetLeaderboard()
 func (guildState *GuildState) GetLeaderboard() *Leaderboard {
-	return guildState.adventOfCode.GetLeaderboard()
+	return guildState.adventOfCode.GetLeaderboard(guildState.year)
 }
 
 // UpdateLeaderboard updates the leaderboard before returning it
 func (guildState *GuildState) UpdateLeaderboard() *Leaderboard {
-	guildState.adventOfCode.UpdateLeaderboard()
-	return guildState.adventOfCode.GetLeaderboard()
+	guildState.adventOfCode.UpdateLeaderboard(guildState.year)
+	return guildState.adventOfCode.GetLeaderboard(guildState.year)
 }

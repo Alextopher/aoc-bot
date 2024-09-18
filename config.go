@@ -5,6 +5,14 @@ import (
 	"io"
 )
 
+// GuildConfig is the config per guild
+type GuildConfig struct {
+	Year          string `json:"year"`
+	Mode          string `json:"mode"`
+	LeaderboardID string `json:"leaderboard_id"`
+	DailyRoles    bool   `json:"daily_roles"`
+}
+
 // Config is the bot config
 type Config struct {
 	// The Discord bot token
@@ -14,11 +22,7 @@ type Config struct {
 	SessionCookie string `json:"session_cookie"`
 
 	// Map guild ids to (year, leaderboard id) pairs
-	Guilds map[string]struct {
-		Year          string `json:"year"`
-		LeaderboardID string `json:"leaderboard_id"`
-		DailyRoles    bool   `json:"daily_roles"`
-	} `json:"guilds"`
+	Guilds map[string]GuildConfig `json:"guilds"`
 }
 
 // ParseConfig parses a config file

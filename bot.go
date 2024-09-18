@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -30,19 +31,19 @@ func NewBot(session *discordgo.Session, sessionCookie string) *Bot {
 }
 
 // AddGuild adds a guild to the bot
-func (bot *Bot) AddGuild(guildID string, year string, leaderboardID string) (err error) {
+func (bot *Bot) AddGuild(guildID string, guildConfig GuildConfig) (err error) {
 	// Create guild logFile file
 	logFile, err := os.OpenFile(fmt.Sprintf("logs/%s.db", guildID), os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		return err
 	}
 
-	bot.states[guildID], err = NewGuildState(bot.sessionCookie, year, leaderboardID, logFile)
+	bot.states[guildID], err = NewGuildState(bot.sessionCookie, guildConfig, logFile)
 	if err != nil {
 		return err
 	}
 
-	return bot.states[guildID].adventOfCode.UpdateLeaderboard()
+	return bot.states[guildID].adventOfCode.UpdateLeaderboard(guildConfig.Year)
 }
 
 // Start starts the bot (and waits for it to be ready)
@@ -79,6 +80,12 @@ func (bot *Bot) Sync() {
 // 1 role for each day + 1 role for 10, 20, 30, 40, and 50 stars
 func (bot *Bot) CreateRoles(guild *discordgo.Guild) error {
 	True := true
+
+	// Get the guild state
+	guildState, ok := bot.states[guild.ID]
+	if !ok {
+		return ErrNotConfigured
+	}
 
 	// Spoiler role (allows users to access all channels)
 	if !bot.CheckRole(guild, "Spoiler") {
@@ -117,16 +124,18 @@ func (bot *Bot) CreateRoles(guild *discordgo.Guild) error {
 		}
 	}
 
-	for i := 25; i > 0; i-- {
-		name := fmt.Sprintf("Day %02d", i)
+	if guildState.daily_roles {
+		for i := 25; i > 0; i-- {
+			name := fmt.Sprintf("Day %02d", i)
 
-		if !bot.CheckRole(guild, name) {
-			_, err := bot.session.GuildRoleCreate(guild.ID, &discordgo.RoleParams{
-				Name: name,
-			})
+			if !bot.CheckRole(guild, name) {
+				_, err := bot.session.GuildRoleCreate(guild.ID, &discordgo.RoleParams{
+					Name: name,
+				})
 
-			if err != nil {
-				return err
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -203,7 +212,7 @@ func (bot *Bot) SyncMemberRoles(guild *discordgo.Guild, guildMember *discordgo.M
 		return ErrDoesNotExist
 	}
 
-	return bot.syncRoles(guild, guildMember, member)
+	return bot.syncRoles(guild, guildMember, member, guildState.daily_roles)
 }
 
 // SyncAllRoles updates each user's roles to reflect their current star count.
@@ -216,6 +225,7 @@ func (bot *Bot) SyncAllRoles(guild *discordgo.Guild) error {
 	// Get the leaderboard
 	leaderboard := guildState.GetLeaderboard()
 
+	log.Printf("Syncing roles for %s %t\n", guild.Name, guildState.daily_roles)
 	guildState.db.GoForEach(func(discord_id, advent_id string) {
 		member, ok := leaderboard.GetMemberByID(advent_id)
 		if !ok {
@@ -230,7 +240,7 @@ func (bot *Bot) SyncAllRoles(guild *discordgo.Guild) error {
 			return
 		}
 
-		err = bot.syncRoles(guild, guildMember, member)
+		err = bot.syncRoles(guild, guildMember, member, guildState.daily_roles)
 		if err != nil {
 			return
 		}
@@ -240,7 +250,7 @@ func (bot *Bot) SyncAllRoles(guild *discordgo.Guild) error {
 }
 
 // syncRoles reduces code duplication between SyncRoles and SyncAllRoles
-func (bot *Bot) syncRoles(guild *discordgo.Guild, guildMember *discordgo.Member, member *Member) error {
+func (bot *Bot) syncRoles(guild *discordgo.Guild, guildMember *discordgo.Member, member *Member, daily_roles bool) error {
 	stars := member.Stars
 
 	// 10, 20, 30, 40, 50 stars
@@ -251,6 +261,7 @@ func (bot *Bot) syncRoles(guild *discordgo.Guild, guildMember *discordgo.Member,
 			log.Println("Error (syncRoles) adding/removing role: ", err)
 			return err
 		}
+		time.Sleep(1 * time.Second)
 	}
 
 	// Connected
@@ -264,11 +275,12 @@ func (bot *Bot) syncRoles(guild *discordgo.Guild, guildMember *discordgo.Member,
 	for day := 1; day <= 25; day++ {
 		role := fmt.Sprintf("Day %02d", day)
 		shouldAdd := member.CompletionDayLevel[day] != nil && len(member.CompletionDayLevel[day]) > 0
-		err := bot.AddOrRemoveRole(guild, guildMember, role, shouldAdd)
+		err := bot.AddOrRemoveRole(guild, guildMember, role, shouldAdd && daily_roles)
 		if err != nil {
 			log.Println("Error (syncRoles) adding/removing role: ", err)
 			return err
 		}
+		time.Sleep(1 * time.Second)
 	}
 
 	return nil

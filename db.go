@@ -8,8 +8,9 @@ import (
 
 // DatabaseEvent is a single database event
 type DatabaseEvent struct {
-	Create *EventCreate `json:"create,omitempty"`
-	Delete *EventDelete `json:"delete,omitempty"`
+	Create   *EventCreate   `json:"create,omitempty"`
+	Delete   *EventDelete   `json:"delete,omitempty"`
+	Snapshot *EventSnapshot `json:"snapshot,omitempty"`
 }
 
 // EventCreate is a database event for creating a claim
@@ -42,18 +43,38 @@ func NewEventDelete(discordID string) *DatabaseEvent {
 	}
 }
 
-// Keeps an append-only log file of user claims
-// (basically keeps a persistent map[string]string)
+// EventSnapshot is a database event for taking a snapshot of the total scores
+type EventSnapshot struct {
+	Timestamp int64          `json:"timestamp"`
+	Scores    map[string]int `json:"scores"`
+}
 
-// Database keeps an append-only log file of user name claims and unclaims
+// NewEventSnapshot creates a new database event for taking a snapshot of the total scores
+func NewEventSnapshot(timestamp int64, scores map[string]int) *DatabaseEvent {
+	return &DatabaseEvent{
+		Snapshot: &EventSnapshot{
+			Timestamp: timestamp,
+			Scores:    scores,
+		},
+	}
+}
+
+// Database keeps an append-only log file of bot operation
+//
+// - tracks APOD id claims
+// - tracks APOD id unclaims
+// - creates APOD total score snapshots
 type Database struct {
 	sync.RWMutex
 
-	// Where to write new events to
+	// Where we write new events to
 	writer *json.Encoder
 
 	// In-memory, per guild, mapping of discord ids to Advent of Code ids
 	mappings map[string]string
+
+	// Timestamped snapshot of total scores
+	scores map[string]int
 }
 
 // NewDatabase creates a new database
@@ -62,6 +83,7 @@ func NewDatabase(reader io.Reader, writer io.Writer) (*Database, error) {
 	database := &Database{
 		writer:   json.NewEncoder(writer),
 		mappings: make(map[string]string),
+		scores:   make(map[string]int),
 	}
 
 	decoder := json.NewDecoder(reader)
@@ -163,6 +185,34 @@ func (database *Database) CheckClaim(adventID string) bool {
 
 	database.RUnlock()
 	return false
+}
+
+// Snapshot takes a snapshot of the total scores
+func (database *Database) Snapshot(timestamp int64, scores map[string]int) error {
+	database.Lock()
+
+	// Take a snapshot of the total scores
+	database.scores = scores
+
+	// Write the event to the database
+	err := database.writer.Encode(NewEventSnapshot(timestamp, scores))
+
+	database.Unlock()
+	return err
+}
+
+// GetScores gets the change in total scores since the last snapshot
+func (database *Database) GetScores(currentScores map[string]int) map[string]int {
+	database.RLock()
+
+	// Get the change in total scores
+	scores := make(map[string]int)
+	for id, score := range currentScores {
+		scores[id] = score - database.scores[id]
+	}
+
+	database.RUnlock()
+	return scores
 }
 
 // GoForEach iterates over each claim and calls a function
