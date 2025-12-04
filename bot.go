@@ -99,13 +99,14 @@ func (bot *Bot) CreateRoles(guild *discordgo.Guild) error {
 		}
 	}
 
-	// Pair role name with color
+	// now there are only 12*2=24 stars
 	colors := map[string]int{
-		"50 Stars":  0xF1C40F, // Yellow
-		"40 Stars":  0xE91E63, // Red
-		"30 Stars":  0x9B59B6, // Purple
-		"20 Stars":  0x3498DB, // Blue
-		"10 Stars":  0x2ECC71, // Green
+		"24 Stars":  0xF1C40F, // Gold
+		"20 Stars":  0xE91E63, // Red/Pink
+		"16 Stars":  0x9B59B6, // Purple
+		"12 Stars":  0x3498DB, // Blue
+		"8 Stars":   0x1ABC9C, // Teal
+		"4 Stars":   0x2ECC71, // Green
 		"Connected": 0x1ABC9C, // Less Green
 	}
 
@@ -125,7 +126,7 @@ func (bot *Bot) CreateRoles(guild *discordgo.Guild) error {
 	}
 
 	if guildState.daily_roles {
-		for i := 25; i > 0; i-- {
+		for i := 12; i > 0; i-- {
 			name := fmt.Sprintf("Day %02d", i)
 
 			if !bot.CheckRole(guild, name) {
@@ -254,7 +255,7 @@ func (bot *Bot) syncRoles(guild *discordgo.Guild, guildMember *discordgo.Member,
 	stars := member.Stars
 
 	// 10, 20, 30, 40, 50 stars
-	for _, starCount := range []int{10, 20, 30, 40, 50} {
+	for _, starCount := range []int{4, 8, 12, 16, 20, 24} {
 		role := fmt.Sprintf("%d Stars", starCount)
 		err := bot.AddOrRemoveRole(guild, guildMember, role, stars >= starCount)
 		if err != nil {
@@ -271,10 +272,10 @@ func (bot *Bot) syncRoles(guild *discordgo.Guild, guildMember *discordgo.Member,
 		return err
 	}
 
-	// Day 1, 2, 3, ..., 25
-	for day := 1; day <= 25; day++ {
+	// Day 1, 2, 3, ..., 12
+	for day := 1; day <= 12; day++ {
 		role := fmt.Sprintf("Day %02d", day)
-		shouldAdd := member.CompletionDayLevel[day] != nil && len(member.CompletionDayLevel[day]) > 0
+		shouldAdd := len(member.CompletionDayLevel[day]) > 0
 		err := bot.AddOrRemoveRole(guild, guildMember, role, shouldAdd && daily_roles)
 		if err != nil {
 			log.Println("Error (syncRoles) adding/removing role: ", err)
@@ -359,13 +360,10 @@ func (bot *Bot) HasRole(guild *discordgo.Guild, member *discordgo.Member, name s
 // RemoveAllRoles removes all managed roles from a user
 func (bot *Bot) RemoveAllRoles(guild *discordgo.Guild, member *discordgo.Member) error {
 	managedRoles := []string{
-		"10 Stars", "20 Stars", "30 Stars", "40 Stars", "50 Stars",
+		"4 Stars", "8 Stars", "12 Stars", "16 Stars", "20 Stars", "24 Stars",
 		"Day 1", "Day 2", "Day 3", "Day 4", "Day 5",
 		"Day 6", "Day 7", "Day 8", "Day 9", "Day 10",
-		"Day 11", "Day 12", "Day 13", "Day 14", "Day 15",
-		"Day 16", "Day 17", "Day 18", "Day 19", "Day 20",
-		"Day 21", "Day 22", "Day 23", "Day 24", "Day 25",
-		"Spoiler", "Connected",
+		"Day 11", "Day 12", "Spoiler", "Connected",
 	}
 
 	for _, roleID := range member.Roles {
