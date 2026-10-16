@@ -8,9 +8,8 @@ import (
 
 // DatabaseEvent is a single database event
 type DatabaseEvent struct {
-	Create   *EventCreate   `json:"create,omitempty"`
-	Delete   *EventDelete   `json:"delete,omitempty"`
-	Snapshot *EventSnapshot `json:"snapshot,omitempty"`
+	Create *EventCreate `json:"create,omitempty"`
+	Delete *EventDelete `json:"delete,omitempty"`
 }
 
 // EventCreate is a database event for creating a claim
@@ -43,27 +42,10 @@ func NewEventDelete(discordID string) *DatabaseEvent {
 	}
 }
 
-// EventSnapshot is a database event for taking a snapshot of the total scores
-type EventSnapshot struct {
-	Timestamp int64          `json:"timestamp"`
-	Scores    map[string]int `json:"scores"`
-}
-
-// NewEventSnapshot creates a new database event for taking a snapshot of the total scores
-func NewEventSnapshot(timestamp int64, scores map[string]int) *DatabaseEvent {
-	return &DatabaseEvent{
-		Snapshot: &EventSnapshot{
-			Timestamp: timestamp,
-			Scores:    scores,
-		},
-	}
-}
-
 // Database keeps an append-only log file of bot operation
 //
-// - tracks APOD id claims
-// - tracks APOD id unclaims
-// - creates APOD total score snapshots
+// - tracks Advent of Code id claims
+// - tracks Advent of Code id unclaims
 type Database struct {
 	sync.RWMutex
 
@@ -72,9 +54,6 @@ type Database struct {
 
 	// In-memory, per guild, mapping of discord ids to Advent of Code ids
 	mappings map[string]string
-
-	// Timestamped snapshot of total scores
-	scores map[string]int
 }
 
 // NewDatabase creates a new database
@@ -83,7 +62,6 @@ func NewDatabase(reader io.Reader, writer io.Writer) (*Database, error) {
 	database := &Database{
 		writer:   json.NewEncoder(writer),
 		mappings: make(map[string]string),
-		scores:   make(map[string]int),
 	}
 
 	decoder := json.NewDecoder(reader)
@@ -155,22 +133,6 @@ func (database *Database) GetAdventID(discordID string) (string, bool) {
 	return aocID, ok
 }
 
-// GetDiscordID gets the Discord ID for an Advent of Code user id
-func (database *Database) GetDiscordID(adventID string) (string, bool) {
-	database.RLock()
-
-	// Get the Discord ID
-	for discordID, id := range database.mappings {
-		if id == adventID {
-			database.RUnlock()
-			return discordID, true
-		}
-	}
-
-	database.RUnlock()
-	return "", false
-}
-
 // CheckClaim checks if an Advent of Code user has been claimed
 func (database *Database) CheckClaim(adventID string) bool {
 	database.RLock()
@@ -185,44 +147,4 @@ func (database *Database) CheckClaim(adventID string) bool {
 
 	database.RUnlock()
 	return false
-}
-
-// Snapshot takes a snapshot of the total scores
-func (database *Database) Snapshot(timestamp int64, scores map[string]int) error {
-	database.Lock()
-
-	// Take a snapshot of the total scores
-	database.scores = scores
-
-	// Write the event to the database
-	err := database.writer.Encode(NewEventSnapshot(timestamp, scores))
-
-	database.Unlock()
-	return err
-}
-
-// GetScores gets the change in total scores since the last snapshot
-func (database *Database) GetScores(currentScores map[string]int) map[string]int {
-	database.RLock()
-
-	// Get the change in total scores
-	scores := make(map[string]int)
-	for id, score := range currentScores {
-		scores[id] = score - database.scores[id]
-	}
-
-	database.RUnlock()
-	return scores
-}
-
-// GoForEach iterates over each claim and calls a function
-func (database *Database) GoForEach(fn func(discord_id, advent_id string)) {
-	database.RLock()
-
-	// Iterate over each claim
-	for discordID, adventID := range database.mappings {
-		go fn(discordID, adventID)
-	}
-
-	database.RUnlock()
 }

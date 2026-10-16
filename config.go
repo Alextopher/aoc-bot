@@ -8,7 +8,6 @@ import (
 // GuildConfig is the config per guild
 type GuildConfig struct {
 	Year          string `json:"year"`
-	Mode          string `json:"mode"`
 	LeaderboardID string `json:"leaderboard_id"`
 	DailyRoles    bool   `json:"daily_roles"`
 }

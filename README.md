@@ -2,15 +2,74 @@
 
 ![image](https://github.com/Alextopher/aocbot/assets/56850185/7241d3f5-a092-47fd-91e9-4b11a4017426)
 
-A Discord bot that connects to the Advent of Code private leaderboard API. It hands out roles for achieving star milestones and unlocks daily discussion channels after challenge completion.
+A Discord bot that follows an Advent of Code private leaderboard. It hands out
+roles for star milestones and unlocks per-day discussion channels once a member
+has finished that day's puzzle.
 
-This bot is currently a minimum viable product. There is no usage document, and that isn't a priority yet. Get in contact with me if you want to add this to another server; I might be able to host it for the time being.
+This is a personal hobby project built for one server. It's not set up for other
+users, and there are no plans to support them.
 
-This year (2023) will serve as a trial run. I will take what I learn and try to tidy it up and launch it as a larger project in 2024.
+## Running it
+
+Write a `config.json` next to the binary:
+
+```json
+{
+  "discord_token": "...",
+  "session_cookie": "...",
+  "guilds": {
+    "<guild id>": {
+      "year": "2025",
+      "leaderboard_id": "<leaderboard id>",
+      "daily_roles": true
+    }
+  }
+}
+```
+
+`session_cookie` is the value of the `session` cookie from a logged-in
+adventofcode.com browser session.
+
+Then:
+
+```sh
+docker compose up -d --build
+```
+
+Or run it directly with `go run .`. Either way the process needs a writable
+`logs/` directory, where it keeps one append-only claim log per guild.
+
+The bot polls the leaderboard API every 15 minutes and reconciles roles from
+what it sees.
+
+## Roles
+
+Created on startup, removed when they no longer apply:
+
+- `Connected` — the member has claimed an Advent of Code account.
+- `Spoiler` — opt-in access to every day's channel, via `/spoilers`.
+- `N Stars` — hoisted milestone roles at 4, 8, 12, 16, 20, and 24 stars.
+- `Day NN` — access to one day's channel, granted on completion
+  (`daily_roles` guilds only).
+
+The event is currently 12 days long; `numDays` and `starTiers` in `bot.go`
+define the shape, and stale roles from a previous shape are deleted at startup.
+
+## Commands
+
+| Command | Description |
+| --- | --- |
+| `/claim <username>` | Link your Discord account to an Advent of Code name or ID |
+| `/unclaim [member]` | Drop your claim, or someone else's (admin) |
+| `/stars [member]` | Show a star count |
+| `/spoilers` | Toggle access to all day channels |
+| `/setup <day>` | Mark the current channel as that day's channel (admin) |
+| `/source` | Link to this repository |
+| `/help` | List commands |
 
 ## License (MIT)
 
-Copyright (c) 2023 Christopher Mahoney
+Copyright (c) 2023-2026 Christopher Mahoney
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

@@ -41,12 +41,20 @@ func NewGuildState(sessionCookie string, config GuildConfig, log *os.File) (*Gui
 	}, nil
 }
 
-// ClaimName claims a user by Advent of Code name
-func (guildState *GuildState) ClaimName(discordUserID string, username string) error {
-	member, ok := guildState.GetLeaderboard().GetMemberByName(username)
+// Claim claims an Advent of Code account by name, falling back to its ID
+func (guildState *GuildState) Claim(discordUserID string, nameOrID string) error {
+	lookup := func(leaderboard *Leaderboard) (*Member, bool) {
+		if member, ok := leaderboard.GetMemberByName(nameOrID); ok {
+			return member, true
+		}
+
+		return leaderboard.GetMemberByID(nameOrID)
+	}
+
+	member, ok := lookup(guildState.GetLeaderboard())
 	if !ok {
 		// Update the leaderboard and try again
-		member, ok = guildState.UpdateLeaderboard().GetMemberByName(username)
+		member, ok = lookup(guildState.UpdateLeaderboard())
 	}
 
 	if !ok {
@@ -61,38 +69,6 @@ func (guildState *GuildState) ClaimName(discordUserID string, username string) e
 	}
 
 	return guildState.db.Claim(discordUserID, id)
-}
-
-// ClaimID claims a user by Advent of Code ID
-func (guildState *GuildState) ClaimID(discordUserID string, id string) error {
-	member, ok := guildState.GetLeaderboard().GetMemberByID(id)
-	if !ok {
-		// Update the leaderboard and try again
-		member, ok = guildState.UpdateLeaderboard().GetMemberByID(id)
-	}
-
-	if !ok {
-		return ErrDoesNotExist
-	}
-
-	id = fmt.Sprint(member.ID)
-
-	// Check if the user is already claimed
-	if guildState.db.CheckClaim(id) {
-		return ErrAlreadyClaimed
-	}
-
-	return guildState.db.Claim(discordUserID, id)
-}
-
-// Unclaim removes a claim from a user by Discord ID
-func (guildState *GuildState) Unclaim(discordUserID string) error {
-	return guildState.db.Unclaim(discordUserID)
-}
-
-// CloseNames gets a list of 3 close names to the given name
-func (guildState *GuildState) CloseNames(username string) ([]string, error) {
-	return guildState.GetLeaderboard().CloseNames(username)
 }
 
 // GetLeaderboard is wrapper for guildState.adventOfCode.GetLeaderboard()

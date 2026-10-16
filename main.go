@@ -60,16 +60,20 @@ func main() {
 		if err != nil {
 			log.Fatalln("Error creating roles: ", err)
 		}
+
+		// Drop roles left over from a previous event shape (e.g. "Day 25")
+		err = bot.CleanupRoles(guild)
+		if err != nil {
+			log.Println("Error cleaning up stale roles: ", err)
+		}
 	}
 
 	log.Println("Press CTRL-C to exit.")
 
 	// Every 15 minutes, sync the bot with the Advent of Code API
-	bot.Sync()
-
 	ticker := time.NewTicker(15 * time.Minute)
 	for {
-		<-ticker.C
 		bot.Sync()
+		<-ticker.C
 	}
 }

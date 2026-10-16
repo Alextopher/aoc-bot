@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 
 	"github.com/hbollon/go-edlib"
@@ -35,10 +34,6 @@ type Member struct {
 	ID int `json:"id"`
 	// CompletionDayLevel is a map of days to their completion status
 	CompletionDayLevel map[int]map[int]*CompletionDayLevel `json:"completion_day_level"`
-}
-
-func (member Member) String() string {
-	return fmt.Sprintf("AOC Name: %s\nTotal Stars: %d", member.Name, member.Stars)
 }
 
 // CompletionDayLevel is the completion status of a day

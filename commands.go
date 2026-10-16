@@ -3,88 +3,118 @@ package main
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/bwmarrin/discordgo"
 )
 
-// RegisterCommands registers the bot's commands with Discord
-func (bot *Bot) RegisterCommands() error {
-	commands := []*discordgo.ApplicationCommand{
-		{
-			Name:        "claim",
-			Description: "Claims a username or user ID",
-			Type:        discordgo.ChatApplicationCommand,
-			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Name:        "username",
-					Description: "The username to claim",
-					Type:        discordgo.ApplicationCommandOptionString,
-					Required:    true,
-				},
+// minDayOption is the lowest valid /setup day, as discordgo wants a pointer
+var minDayOption float64 = 1
+
+// commands are the bot's slash commands, and the source of the /help text
+var commands = []*discordgo.ApplicationCommand{
+	{
+		Name:        "claim",
+		Description: "Claims a username by Advent of Code name (or ID)",
+		Type:        discordgo.ChatApplicationCommand,
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Name:        "username",
+				Description: "The username to claim",
+				Type:        discordgo.ApplicationCommandOptionString,
+				Required:    true,
 			},
 		},
-		{
-			Name:        "unclaim",
-			Description: "Removes your claim to an advent of code account",
-			Type:        discordgo.ChatApplicationCommand,
-			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Name:        "member",
-					Description: "The _discord_ user to remove the claim from (Admin only)",
-					Type:        discordgo.ApplicationCommandOptionUser,
-					Required:    false,
-				},
+	},
+	{
+		Name:        "unclaim",
+		Description: "Removes a claim to an advent of code account (another user's, Admin only)",
+		Type:        discordgo.ChatApplicationCommand,
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Name:        "member",
+				Description: "The _discord_ user to remove the claim from (Admin only)",
+				Type:        discordgo.ApplicationCommandOptionUser,
+				Required:    false,
 			},
 		},
-		{
-			Name:        "stars",
-			Description: "Returns how many stars you have collected (debugging)",
-			Type:        discordgo.ChatApplicationCommand,
-			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Name:        "member",
-					Description: "The _discord_ user to get the star count for",
-					Type:        discordgo.ApplicationCommandOptionUser,
-					Required:    false,
-				},
+	},
+	{
+		Name:        "stars",
+		Description: "Returns how many stars you have collected (debugging)",
+		Type:        discordgo.ChatApplicationCommand,
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Name:        "member",
+				Description: "The _discord_ user to get the star count for",
+				Type:        discordgo.ApplicationCommandOptionUser,
+				Required:    false,
 			},
 		},
-		{
-			Name:        "spoilers",
-			Description: "Gives you access to the spoiler channels (toggle)\n",
-			Type:        discordgo.ChatApplicationCommand,
-		},
-		{
-			Name:        "setup",
-			Description: "Sets up this channel for use as a spoiler channel for a given day (Admin only)",
-			Type:        discordgo.ChatApplicationCommand,
-			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Name:        "day",
-					Description: "The day to set up this channel for",
-					Type:        discordgo.ApplicationCommandOptionInteger,
-					Required:    true,
-				},
+	},
+	{
+		Name:        "spoilers",
+		Description: "Gives you access to the spoiler channels (toggle)",
+		Type:        discordgo.ChatApplicationCommand,
+	},
+	{
+		Name:        "setup",
+		Description: "Sets up this channel for use as a spoiler channel for a given day (Admin only)",
+		Type:        discordgo.ChatApplicationCommand,
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Name:        "day",
+				Description: fmt.Sprintf("The day to set up this channel for (1-%d)", numDays),
+				Type:        discordgo.ApplicationCommandOptionInteger,
+				Required:    true,
+				MinValue:    &minDayOption,
+				MaxValue:    numDays,
 			},
 		},
-		{
-			Name:        "source",
-			Description: "Returns the source code for the bot",
-			Type:        discordgo.ChatApplicationCommand,
-		},
-		{
-			Name:        "help",
-			Description: "Shows help",
-			Type:        discordgo.ChatApplicationCommand,
-		},
+	},
+	{
+		Name:        "source",
+		Description: "Links my source code",
+		Type:        discordgo.ChatApplicationCommand,
+	},
+	{
+		Name:        "help",
+		Description: "Shows this help message",
+		Type:        discordgo.ChatApplicationCommand,
+	},
+}
+
+// helpMessage builds the /help text from the command definitions above
+func helpMessage() string {
+	lines := make([]string, 0, len(commands)+1)
+	lines = append(lines, "Help:")
+
+	for _, command := range commands {
+		var usage strings.Builder
+		usage.WriteString("/")
+		usage.WriteString(command.Name)
+		for _, option := range command.Options {
+			if option.Required {
+				fmt.Fprintf(&usage, " <%s>", option.Name)
+			} else {
+				fmt.Fprintf(&usage, " [%s]", option.Name)
+			}
+		}
+
+		lines = append(lines, fmt.Sprintf("- `%s`: %s", usage.String(), command.Description))
 	}
 
-	commands, err := bot.session.ApplicationCommandBulkOverwrite(bot.session.State.User.ID, "", commands)
+	return strings.Join(lines, "\n")
+}
+
+// RegisterCommands registers the bot's commands with Discord
+func (bot *Bot) RegisterCommands() error {
+	registered, err := bot.session.ApplicationCommandBulkOverwrite(bot.session.State.User.ID, "", commands)
 	if err != nil {
 		return err
 	}
 
-	for _, command := range commands {
+	for _, command := range registered {
 		log.Printf("Registered command: %s", command.Name)
 	}
 
@@ -119,15 +149,7 @@ func (bot *Bot) onInteractionCreate(session *discordgo.Session, interaction *dis
 		bot.respondToInteraction(i, "https://github.com/Alextopher/aoc-bot", false)
 	case "help":
 		log.Printf("Help requested by @%s", interaction.Member.User.Username)
-		msg := "Help:\n"
-		msg += "- `/claim <username>`: Claims a username by Advent of Code name (or ID)\n"
-		msg += "- `/unclaim`: Removes your claim to an advent of code account\n"
-		msg += "- `/unclaim <member>`: Removes another user's claim to an advent of code account (Admin only)\n"
-		msg += "- `/stars`: Returns how many stars you have collected (debugging)\n"
-		msg += "- `/spoilers`: Gives you access to the spoiler channels (toggle)\n"
-		msg += "- `/source`: links my source code\n"
-		msg += "- `/help`: Shows this help message"
-		bot.respondToInteraction(i, msg, false)
+		bot.respondToInteraction(i, helpMessage(), false)
 	}
 }
 
@@ -145,35 +167,33 @@ func (bot *Bot) onClaim(interaction *discordgo.Interaction) {
 		return
 	}
 
-	// Try to claim the user by name
-	err := guildState.ClaimName(interaction.Member.User.ID, username)
-	if err == ErrDoesNotExist {
-		// If the user doesn't exist, try to claim by ID
-		err = guildState.ClaimID(interaction.Member.User.ID, username)
-	}
-
-	if err == ErrDoesNotExist {
-		// If the user still doesn't exist, try to find close names to help the user out
-		closeNames, err := guildState.CloseNames(username)
-		if err != nil {
+	// Try to claim the user by name, then by ID
+	switch err := guildState.Claim(interaction.Member.User.ID, username); {
+	case err == ErrDoesNotExist:
+		// Try to find close names to help the user out
+		closeNames, nameErr := guildState.GetLeaderboard().CloseNames(username)
+		if nameErr != nil {
 			// Report that their name is invalid
 			deferred.finalize("Error 2: I couldn't find that user.")
 			return
 		}
 
 		// Build the error message
-		message := "Error 3: I couldn't find that user. Did you mean one of these?\n"
+		var message strings.Builder
+		message.WriteString("Error 3: I couldn't find that user. Did you mean one of these?\n")
 		for _, name := range closeNames {
-			message += fmt.Sprintf("- '%s'\n", name)
+			fmt.Fprintf(&message, "- '%s'\n", name)
 		}
 
-		deferred.finalize(message)
-	} else if err == ErrAlreadyClaimed {
+		deferred.finalize(message.String())
+		return
+
+	case err == ErrAlreadyClaimed:
 		// Check if this user just tried to re-claim themselves
 		aocID, ok := guildState.db.GetAdventID(interaction.Member.User.ID)
 		if ok {
-			member, ok := guildState.GetLeaderboard().GetMemberByID(aocID)
-			if aocID == username || (ok && member.Name == username) {
+			member, found := guildState.GetLeaderboard().GetMemberByID(aocID)
+			if aocID == username || (found && member.Name == username) {
 				// Report that this user just tried to re-claim themselves
 				deferred.finalize("You have already claimed this user :smile:")
 				return
@@ -182,13 +202,16 @@ func (bot *Bot) onClaim(interaction *discordgo.Interaction) {
 
 		// Report that the user has already been claimed
 		deferred.finalize("Error 4: This user has already been claimed, if you believe this is an error, please contact an administrator")
-	} else if err != nil {
+		return
+
+	case err != nil:
 		// Report that something went wrong
 		deferred.finalize("Error 5: Something went wrong, please try again later.")
-	} else {
-		// Report that the user has been claimed
-		deferred.finalize("Success: You have claimed your Advent of Code user!")
+		return
 	}
+
+	// Report that the user has been claimed
+	deferred.finalize("Success: You have claimed your Advent of Code user!")
 
 	guild, err := bot.session.State.Guild(interaction.GuildID)
 	if err != nil {
@@ -234,7 +257,7 @@ func (bot *Bot) onUnclaim(interaction *discordgo.Interaction) {
 
 	// Try to unclaim the user
 	log.Println("Unclaiming user: ", user.ID)
-	err := guildState.Unclaim(user.ID)
+	err := guildState.db.Unclaim(user.ID)
 	if err == ErrDoesNotExist {
 		// Report that the discord user never claimed an Advent of Code user
 		if self {
@@ -245,6 +268,7 @@ func (bot *Bot) onUnclaim(interaction *discordgo.Interaction) {
 	} else if err != nil {
 		// Report that something went wrong
 		deferred.finalize("Error 8: Something went wrong, please try again later.")
+		return
 	} else {
 		// Report that the user has been unclaimed
 		if self {
@@ -312,10 +336,10 @@ func (bot *Bot) onStars(interaction *discordgo.Interaction) {
 
 	// Success!
 	if self {
-		msg := fmt.Sprintf("You have collected **%d** stars!", aocMember.Stars)
+		msg := fmt.Sprintf("You have collected **%d** of %d stars!", aocMember.Stars, maxStars)
 		deferred.finalize(msg)
 	} else {
-		msg := fmt.Sprintf("They have collected **%d** stars!", aocMember.Stars)
+		msg := fmt.Sprintf("They have collected **%d** of %d stars!", aocMember.Stars, maxStars)
 		deferred.finalize(msg)
 	}
 
@@ -369,6 +393,10 @@ func (bot *Bot) onSetup(interaction *discordgo.Interaction) {
 	}
 
 	day := interaction.ApplicationCommandData().Options[0].IntValue()
+	if day < 1 || day > numDays {
+		deferred.finalize(fmt.Sprintf("Error 18: Day must be between 1 and %d.", numDays))
+		return
+	}
 
 	guild, err := bot.session.Guild(interaction.GuildID)
 	if err != nil {
@@ -378,7 +406,7 @@ func (bot *Bot) onSetup(interaction *discordgo.Interaction) {
 	}
 
 	// Set up this channel for this day
-	err = bot.SetupChannel(guild, interaction.ChannelID, day)
+	err = bot.SetupChannel(guild, interaction.ChannelID, int(day))
 	if err != nil {
 		deferred.finalize("Error 17: Something went wrong, please try again later.")
 	} else {

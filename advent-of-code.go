@@ -34,7 +34,11 @@ func NewAdventOfCode(sessionCookie string, id string) *AdventOfCode {
 
 // GetLeaderboard gets the most recent leaderboard data from the API
 func (aoc *AdventOfCode) GetLeaderboard(year string) *Leaderboard {
-	if time.Since(aoc.lastUpdated) > 15*time.Minute {
+	aoc.RLock()
+	stale := time.Since(aoc.lastUpdated) > 15*time.Minute
+	aoc.RUnlock()
+
+	if stale {
 		aoc.UpdateLeaderboard(year)
 	}
 
@@ -50,8 +54,7 @@ func (aoc *AdventOfCode) GetLeaderboard(year string) *Leaderboard {
 
 // UpdateLeaderboard updates a leaderboard by getting the latest data from the API
 func (aoc *AdventOfCode) UpdateLeaderboard(year string) error {
-	requestURL := "https://adventofcode.com/" + year + "/leaderboard/private/view/" + aoc.id + ".json"
-	fmt.Println(requestURL)
+	requestURL := fmt.Sprintf("https://adventofcode.com/%s/leaderboard/private/view/%s.json", year, aoc.id)
 
 	url, err := url.Parse(requestURL)
 	if err != nil {
@@ -74,7 +77,7 @@ func (aoc *AdventOfCode) UpdateLeaderboard(year string) error {
 		return err
 	}
 
-	// Check the content type of the response, if it's not JSON then we can't parse it
+	// Check the content type of the response, if it's not JSON that implies our session is invalid
 	contentType := response.Header.Get("Content-Type")
 	if contentType != "application/json" {
 		return ErrInvalidSession
